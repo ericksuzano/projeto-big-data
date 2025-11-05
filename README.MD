@@ -82,6 +82,6 @@ venv\Scripts\activate
 
 Execute os scripts em sequência para gerar os dados, tratá-los e abrir o dashboard:
 
-python dados.py # Gera produtos_doados0.csv
-python app.py # Gera produtos_doados1.csv
-python grafico_plotly.py # Abre dashboard Plotly
+python dados.py (Gera produtos_doados0.csv)
+python app.py (Gera produtos_doados1.csv)
+python grafico_plotly.py (Abre dashboard Plotly)
