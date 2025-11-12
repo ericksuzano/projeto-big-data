@@ -1,10 +1,3 @@
-# ------------------------------------------------------
-# Painel de Doações — Claro, Centralizado, KPIs lado a lado
-# - Anti-duplicatas + sanitizador ProdutoBase
-# - Oculta "sem características" (sem "Não informado")
-# - Treemap: sem % no hover, sem repetir produto; folhas ocultas (maxdepth=2)
-# - Título do treemap deslocado (annotation y/yshift) sem mexer no pathbar
-# ------------------------------------------------------
 import pandas as pd
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
@@ -13,11 +6,11 @@ import re, unicodedata
 FILE_PATH = "produtos_doados0.csv"
 df = pd.read_csv(FILE_PATH)
 
-# Datas
+# datas
 df["DataDaDoacao_dt"] = pd.to_datetime(df["Data da Doação"], format="%d/%m/%Y", errors="coerce")
 df["AnoMes"] = df["DataDaDoacao_dt"].dt.to_period("M").astype(str)
 
-# Parser anti-duplicatas
+# Parser para nao ter duplicações
 def _norm_ascii_upper(s):
     s = str(s or "").strip()
     s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
@@ -60,7 +53,6 @@ def parse_produto_tipo(s):
 # Parse
 df[["ProdutoBase","Classificacao"]] = df["Produto/Tipo"].apply(lambda s: pd.Series(parse_produto_tipo(s)))
 
-# Sanitizador final de ProdutoBase
 df["ProdutoBase"] = (df["ProdutoBase"]
     .str.replace(r"/\s*(CONVENCIONAL|ORG[ÂA]NICO)\s*$", "", regex=True, flags=re.IGNORECASE)
     .str.replace(r"\(\s*\)", "", regex=True)
@@ -68,10 +60,10 @@ df["ProdutoBase"] = (df["ProdutoBase"]
     .str.strip()
 )
 
-# Categoria = ProdutoBase
+# categoria = produtoBase
 df["Categoria"] = df["ProdutoBase"]
 
-# Métricas
+# metricas
 df["Valor Doado"] = df["Quantidade Entregue"] * df["Preço Unitário R$"]
 
 top10_qtd = (df.groupby("ProdutoBase", as_index=False)["Quantidade Entregue"].sum()
@@ -95,7 +87,7 @@ semanal_freq = (base_resample.set_index("DataDaDoacao_dt").sort_index()
                 .resample("W")["ProdutoBase"].count().reset_index()
                 .rename(columns={"ProdutoBase":"Registros"}))
 
-# Treemap (Categoria > Classificacao?) — folhas ocultas
+# Treemap
 agg_prod = (df.groupby(["Categoria","Classificacao","ProdutoBase"], as_index=False)[["Valor Doado"]].sum())
 
 labels, parents, ids, values = [], [], [], []
@@ -118,7 +110,7 @@ for _, r in agg_prod.iterrows():
     prod_id = f"prd::{cat}::{cls or 'NOCLS'}::{prod}"
     labels += [prod]; parents += [parent_id]; ids += [prod_id]; values += [val]
 
-# Texto custom por nível (classe visível, produto oculto)
+
 text = []
 for lbl, pid in zip(labels, parents):
     if pid.startswith("cat::"):
@@ -133,13 +125,13 @@ kpi_total_qtd = int(df["Quantidade Entregue"].sum())
 kpi_total_valor = float(df["Valor Doado"].sum())
 kpi_produtos_unicos = int(df["ProdutoBase"].nunique())
 
-# Tema claro
+# tema claro
 C_BG, C_PLOT, C_GRID, C_TEXT, C_MUTE = "#FFFFFF", "#FAFAFC", "#E7EAF0", "#0F172A", "#475569"
 C1, C2, C3, C4, C5 = "#3B82F6", "#10B981", "#8B5CF6", "#EC4899", "#059669"
 COLS = ["#2563EB","#F59E0B","#10B981","#EF4444","#7C3AED","#14B8A6",
         "#D97706","#3B82F6","#16A34A","#E11D48","#0EA5E9","#A855F7"]
 
-# Subplots — colspans + KPIs lado a lado
+# KPIs lado a lado
 fig = make_subplots(
     rows=7, cols=3,
     specs=[
@@ -183,7 +175,7 @@ fig.add_trace(go.Bar(
     hovertemplate="<b>%{y}</b><br>Valor: R$ %{x:,.2f}<extra></extra>", name="Top 10 Valor"
 ), row=2, col=1)
 
-# 3) Treemap — sem %; folhas ocultas; pathbar padrão
+# 3) Treemap
 fig.add_trace(go.Treemap(
     labels=labels, parents=parents, ids=ids, values=values,
     branchvalues="total", marker=dict(colors=COLS),
@@ -256,7 +248,6 @@ fig.update_layout(
     showlegend=False
 )
 
-# PATCH: desloca somente o título do treemap (annotation) para evitar colisão
 for ann in fig.layout.annotations:
     if ann.text == "Mix por Categoria/Classificação":
         ann.update(
